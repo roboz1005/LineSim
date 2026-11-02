@@ -16,7 +16,7 @@
  <div class="g"><button data-w=".4">0.4</button><button data-w=".8">0.8</button><button data-w="1.6">1.6</button></div>
  <div class="g"><button data-p="pScale">Scale &amp; unit ▾</button><button data-p="pSnap">Snap ▾</button><button data-p="pMeas">Measure ▾</button></div>
  <div class="g"><button id="bUndo" title="Undo">↶</button><button id="bRedo" title="Redo">↷</button><button id="bClear">Clear</button></div>
- <div class="g"><button id="bFit">Fit page</button><button id="bHide">Hide UI</button><button data-p="pSet" title="Settings">⚙</button></div>
+ <div class="g"><button id="bFit">Fit page</button><button id="bHide">Hide UI</button><button id="bSnip">Snip</button><button data-p="pSet" title="Settings">⚙</button></div>
 </div>
 
 <div class="pop" id="pScale" hidden>
@@ -37,6 +37,8 @@
 <div class="pop" id="pMeas" hidden>
  <label>Measurements <input type="checkbox" data-k="meas"></label>
  <label>Between-line angles <input type="checkbox" data-k="betw"></label>
+ <label>Hide new lengths &amp; angles <input type="checkbox" data-k="autoHide"></label>
+ <label>Angle color <input type="color" data-k="angColor"></label>
  <label>Show scale in note <input type="checkbox" data-k="showScale"></label>
  <label>Length label side <select data-k="side"><option value="top">Top</option><option value="bottom">Bottom</option></select></label>
  <label>Decimals <select data-k="dec"><option value="auto">Auto</option><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
@@ -47,5 +49,7 @@
  <button id="bInst" hidden>Install LineSim</button>
 </div>
 <button id="bShow" aria-label="Show UI"></button>
+<div id="snap" hidden><div id="sel" hidden></div><div id="sbar"><span>Drag to select an area</span><button id="sPage">Page</button><button id="sCancel">Cancel</button></div></div>
+<div id="toast" hidden></div>
 <script src="./app.js"></script>
 </body></html>

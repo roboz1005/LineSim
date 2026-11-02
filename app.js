@@ -5,7 +5,7 @@ const cv=$('#c'),ctx=cv.getContext('2d'),bar=$('#bar'),chip=$('#chip');
 const MPU={nm:1e-6,'µm':1e-3,mm:1,cm:10,m:1e3,km:1e6,in:25.4,ft:304.8,yd:914.4,mi:1609344};
 const COLS=['#111111','#dc2626','#2563eb','#16a34a','#ea580c','#9333ea','#0d9488','#78350f'];
 const PRE='1:1 1:2 1:5 1:10 1:20 1:50 1:100 1:200 1:500 1:1000 2:1 5:1 10:1 20:1 50:1 100:1'.split(' ');
-const S={tool:'line',color:COLS[0],width:.8,orient:'p',unit:'mm',ps:1,pr:1,snapPt:true,snapLn:true,snapAng:true,grid:false,gridStep:null,meas:true,betw:true,side:'top',dec:'auto',showScale:true,finger:false,step:false,stepLen:null,stepAng:5};
+const S={tool:'line',color:COLS[0],width:.8,orient:'p',unit:'mm',ps:1,pr:1,snapPt:true,snapLn:true,snapAng:true,grid:false,gridStep:null,meas:true,betw:true,side:'top',dec:'auto',showScale:true,finger:false,step:false,stepLen:null,stepAng:5,autoHide:false,angColor:'#c026d3'};
 let shapes=[],hist=[],redo=[],draw=null,ui=true,cw=0,ch=0,dpr=1,fk=1,pen=0,penT=0,lastKey='',hits=[],dp=null,eraser=null,erP=0;
 const v={k:3,ox:0,oy:0},P=new Map();
 try{const d=JSON.parse(localStorage.getItem('linesim'));if(d){shapes=d.shapes||[];Object.assign(S,d.S)}}catch(e){}
@@ -68,40 +68,41 @@ function mk(d){const{a,b,tool}=d;let s;
  else if(tool==='rect'){s={type:'rect',cx:a.x,cy:a.y,hw:Math.abs(b.x-a.x),hh:Math.abs(b.y-a.y)};if(s.hw<.25&&s.hh<.25)return null}
  else{s={type:'circle',cx:a.x,cy:a.y,r:hyp(b.x-a.x,b.y-a.y)};if(s.r<.5)return null}
  Object.assign(s,{id:0,color:S.color,width:S.width});
- if(s.type==='line')s.joins=calcJoins(s);
+ if(s.type==='line'){s.joins=calcJoins(s);if(S.autoHide){s.sl=s.sa=false;s.joins.forEach(j=>j.show=false)}}
  return s}
+const live=d=>{const s=d&&mk(d);if(s&&s.type==='line'){s.sl=s.sa=true;s.joins.forEach(j=>j.show=true)}return s}; // while drawing, labels are always visible
 
 // ---------- rendering ----------
-function txt(t,x,y,c,nx,ny){ctx.font='600 13px system-ui,sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
- if(nx!=null){const d=7+Math.abs(nx)*ctx.measureText(t).width/2+Math.abs(ny)*8;x+=nx*d;y+=ny*d}
- ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText(t,x,y);ctx.fillStyle=c;ctx.fillText(t,x,y)}
+const FONT='600 13px system-ui,sans-serif';
+// A tappable label. o[k]===false hides it: it becomes a faint ghost dot (drawn only while the UI is showing).
+function lab(t,x,y,c,o,k,nx,ny){
+ ctx.font=FONT;ctx.textAlign='center';ctx.textBaseline='middle';const w=ctx.measureText(t).width;
+ if(nx!=null){const d=7+Math.abs(nx)*w/2+Math.abs(ny)*8;x+=nx*d;y+=ny*d}
+ if(o[k]===false){if(ui){ctx.save();ctx.strokeStyle=c;ctx.globalAlpha=.5;ctx.lineWidth=1.5;ctx.setLineDash([2,2]);ctx.beginPath();ctx.arc(x,y,6,0,7);ctx.stroke();ctx.restore();hits.push({o,k,x,y,w:0})}return}
+ ctx.lineJoin='round';ctx.lineWidth=4;ctx.strokeStyle='#fff';ctx.strokeText(t,x,y);ctx.fillStyle=c;ctx.fillText(t,x,y);hits.push({o,k,x,y,w})}
 function labels(s){
  const ax=X(s.x1),ay=Y(s.y1),dx=X(s.x2)-ax,dy=Y(s.y2)-ay,L=hyp(dx,dy);if(L<3)return;
- // length, on the "top" side (up the screen; right for vertical lines) unless flipped
+ // length: "top" side (up the screen; right for vertical lines) unless flipped; uses the line colour
  let nx=dy/L,ny=-dx/L;if(ny>1e-9||(Math.abs(ny)<1e-9&&nx<0)){nx=-nx;ny=-ny}
  if(S.side==='bottom'){nx=-nx;ny=-ny}
- txt(fmt(L/v.k),ax+dx/2,ay+dy/2,s.color,nx,ny);
- // angle with the horizontal: dashed reference + arc at the anchor end (see ang())
- const A=ang(dx,dy),fx=A.flip?ax+dx:ax,fy=A.flip?ay+dy:ay,sx=Math.cos(A.ref)>0?1:-1,r=Math.max(8,Math.min(34,L*.35)),sw=A.sw;
- ctx.save();ctx.strokeStyle=s.color;ctx.lineWidth=1.2;ctx.setLineDash([5,4]);
- ctx.beginPath();ctx.moveTo(fx,fy);ctx.lineTo(fx+sx*(r+16),fy);ctx.stroke();
- ctx.setLineDash([]);ctx.beginPath();ctx.arc(fx,fy,r,A.ref,A.ref+sw,sw<0);ctx.stroke();ctx.restore();
- const m=A.ref+sw/2;let tx=fx+Math.cos(m)*(r+16),ty=fy+Math.sin(m)*(r+16);
- if(Math.abs(sw)<.4){tx=fx+sx*(r+24);ty=fy-(Math.sin(A.ref+sw)>=0?1:-1)*11}
- txt(A.val.toFixed(1)+'°',tx,ty,s.color);
+ lab(fmt(L/v.k),ax+dx/2,ay+dy/2,s.color,s,'sl',nx,ny);
+ // angle with the horizontal: dashed reference + arc at the start point, in the fixed angle colour
+ const A=ang(dx,dy),sx=A.ref?-1:1,r=Math.max(8,Math.min(34,L*.35)),sw=A.sw,ac=S.angColor;
+ if(s.sa!==false){ctx.save();ctx.strokeStyle=ac;ctx.lineWidth=1.2;ctx.setLineDash([5,4]);
+  ctx.beginPath();ctx.moveTo(ax,ay);ctx.lineTo(ax+sx*(r+16),ay);ctx.stroke();
+  ctx.setLineDash([]);ctx.beginPath();ctx.arc(ax,ay,r,A.ref,A.ref+sw,sw<0);ctx.stroke();ctx.restore()}
+ const m=A.ref+sw/2;let tx=ax+Math.cos(m)*(r+16),ty=ay+Math.sin(m)*(r+16);
+ if(Math.abs(sw)<.4){tx=ax+sx*(r+24);ty=ay-(Math.sin(A.ref+sw)>=0?1:-1)*11}
+ lab(A.val.toFixed(1)+'°',tx,ty,ac,s,'sa');
  // angle between this line and the ones it snapped onto
  if(S.betw)for(const j of s.joins||[]){const o=jinfo(s,j);if(!o)continue;
   const a1=Math.atan2(o.u[1],o.u[0]),d=wrap(Math.atan2(o.w[1],o.w[0])-a1),
    rr=Math.max(6,Math.min(28,.35*Math.min(o.lu,o.lw)*v.k)),px=X(o.p[0]),py=Y(o.p[1]),b=a1+d/2;
-  if(j.show===false){if(ui){const gx=px+Math.cos(b)*rr,gy=py+Math.sin(b)*rr;
-   ctx.save();ctx.strokeStyle=s.color;ctx.globalAlpha=.5;ctx.setLineDash([2,2]);ctx.beginPath();ctx.arc(gx,gy,5,0,7);ctx.stroke();ctx.restore();hits.push({j,x:gx,y:gy})}
-   continue}
-  ctx.save();ctx.strokeStyle=s.color;ctx.lineWidth=1.5;ctx.setLineDash([2,3]);ctx.beginPath();ctx.arc(px,py,rr,a1,a1+d,d<0);ctx.stroke();ctx.restore();
-  const bx=px+Math.cos(b)*(rr+14),by=py+Math.sin(b)*(rr+14);
-  txt(o.deg.toFixed(1)+'°',bx,by,s.color);hits.push({j,x:bx,y:by})}}
+  if(j.show!==false){ctx.save();ctx.strokeStyle=ac;ctx.lineWidth=1.5;ctx.setLineDash([2,3]);ctx.beginPath();ctx.arc(px,py,rr,a1,a1+d,d<0);ctx.stroke();ctx.restore()}
+  lab(o.deg.toFixed(1)+'°',px+Math.cos(b)*(rr+14),py+Math.sin(b)*(rr+14),ac,j,'show')}}
 function render(){
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,cw,ch);hits=[];
- const w=PW(),h=PH(),pv=draw&&mk(draw),all=pv?[...shapes,pv]:shapes;
+ const w=PW(),h=PH(),pv=live(draw),all=pv?[...shapes,pv]:shapes;
  ctx.save();ctx.shadowColor='#0006';ctx.shadowBlur=14;ctx.fillStyle='#fff';ctx.fillRect(X(0),Y(0),w*v.k,h*v.k);ctx.restore();
  ctx.save();ctx.beginPath();ctx.rect(X(0),Y(0),w*v.k,h*v.k);ctx.clip();
  if(S.grid){const g=gstep();if(g*v.k>5){ctx.strokeStyle='#0000002e';ctx.lineWidth=1;ctx.beginPath();
@@ -142,8 +143,9 @@ function eraseAt(sx,sy){eraser={x:sx,y:sy};const x=(sx-v.ox)/v.k,y=(sy-v.oy)/v.k
  for(const s of shapes){const d=distTo(s,x,y)-s.width/2;if(d<bd){bd=d;b=s}} // nearest shape within 12 px
  if(b){if(!erP){pushH();erP=1}shapes=shapes.filter(s=>s!==b);shapes.forEach(s=>{if(s.joins)s.joins=s.joins.filter(j=>j.otherId!==b.id)})}
  render()}
-function tapAt(x,y){let b=null,bd=16;for(const h of hits){const d=hyp(h.x-x,h.y-y);if(d<bd){bd=d;b=h}}
- if(b){pushH();b.j.show=!b.j.show}}
+function tapAt(x,y){let b=null,bd=14;
+ for(const h of hits){const d=hyp(Math.max(Math.abs(h.x-x)-h.w/2,0),h.y-y);if(d<bd){bd=d;b=h}}
+ if(b){pushH();b.o[b.k]=b.o[b.k]===false}} // hide <-> show, kept until tapped again
 cv.addEventListener('pointerdown',e=>{
  const now=performance.now(),t=e.pointerType==='touch';
  if(e.pointerType==='pen'){pen=1;penT=now}else if(t&&(pen||now-penT<300))return;
@@ -205,5 +207,34 @@ function setUI(on){ui=on;document.body.classList.toggle('noui',!on);closePops();
 $('#bHide').onclick=()=>setUI(false);$('#bShow').onclick=()=>setUI(true);
 addEventListener('beforeinstallprompt',e=>{e.preventDefault();dp=e;$('#bInst').hidden=false});
 $('#bInst').onclick=()=>dp&&dp.prompt();
+// ---------- snip: drag a box, the area is copied to the clipboard as a clean PNG ----------
+const snapEl=$('#snap'),selEl=$('#sel');let sel=null,tt=0;
+const toast=m=>{const t=$('#toast');t.textContent=m;t.hidden=false;clearTimeout(tt);tt=setTimeout(()=>t.hidden=true,2600)};
+function snapMode(on){document.body.classList.toggle('snapping',on);snapEl.hidden=!on;selEl.hidden=true;snapEl.classList.remove('drag');sel=null;closePops()}
+const selRect=()=>({x:Math.min(sel.x,sel.x2),y:Math.min(sel.y,sel.y2),w:Math.abs(sel.x2-sel.x),h:Math.abs(sel.y2-sel.y)});
+function drawSel(){const r=selRect();Object.assign(selEl.style,{left:r.x+'px',top:r.y+'px',width:r.w+'px',height:r.h+'px'});selEl.hidden=false}
+snapEl.addEventListener('pointerdown',e=>{if(!e.isPrimary||e.target.closest('#sbar'))return;snapEl.setPointerCapture(e.pointerId);
+ sel={x:e.clientX,y:e.clientY,x2:e.clientX,y2:e.clientY};snapEl.classList.add('drag');drawSel()});
+snapEl.addEventListener('pointermove',e=>{if(!sel||!e.isPrimary)return;sel.x2=e.clientX;sel.y2=e.clientY;drawSel()});
+snapEl.addEventListener('pointerup',e=>{if(!sel||!e.isPrimary)return;sel.x2=e.clientX;sel.y2=e.clientY;const r=selRect();sel=null;
+ if(r.w<16||r.h<16){selEl.hidden=true;snapEl.classList.remove('drag');return}
+ capture(r.x,r.y,r.w,r.h)});
+function capture(x,y,w,h){ // runs inside the pointerup gesture so the clipboard write is allowed
+ const x2=Math.min(cw,x+w),y2=Math.min(ch,y+h);x=Math.max(0,x);y=Math.max(0,y);w=x2-x;h=y2-y;if(w<4||h<4){snapMode(false);return}
+ const sUi=ui,sDraw=draw,sEr=eraser,q=Math.max(dpr,2); // re-render sharper (min 2x) and without ghost dots, rings or toolbar
+ ui=false;draw=eraser=null;dpr=q;cv.width=cw*q;cv.height=ch*q;render();
+ const o=document.createElement('canvas');o.width=Math.round(w*q);o.height=Math.round(h*q);
+ const c=o.getContext('2d');c.fillStyle='#c9d0d8';c.fillRect(0,0,o.width,o.height);c.drawImage(cv,x*q,y*q,w*q,h*q,0,0,o.width,o.height);
+ ui=sUi;draw=sDraw;eraser=sEr;dpr=devicePixelRatio||1;cv.width=cw*dpr;cv.height=ch*dpr;render();
+ snapMode(false);deliver(o)}
+async function deliver(o){
+ const bp=new Promise(r=>o.toBlob(r,'image/png'));
+ try{await navigator.clipboard.write([new ClipboardItem({'image/png':bp})]);toast('Copied. Paste it anywhere.');return}catch(e){}
+ const b=await bp,f=new File([b],'linesim.png',{type:'image/png'});
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(e){if(e.name==='AbortError')return}
+ const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='linesim.png';a.click();toast('Clipboard blocked, saved as linesim.png')}
+$('#bSnip').onclick=()=>snapMode(true);$('#sCancel').onclick=()=>snapMode(false);
+$('#sPage').onclick=()=>capture(X(0),Y(0),PW()*v.k,PH()*v.k);
+addEventListener('keydown',e=>{if(e.key==='Escape')snapMode(false)});
 sync();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('./sw.js');
