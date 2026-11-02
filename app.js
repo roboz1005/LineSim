@@ -6,11 +6,14 @@ const MPU={nm:1e-6,'µm':1e-3,mm:1,cm:10,m:1e3,km:1e6,in:25.4,ft:304.8,yd:914.4,
 const COLS=['#111111','#dc2626','#2563eb','#16a34a','#ea580c','#9333ea','#0d9488','#78350f'];
 const PRE='1:1 1:2 1:5 1:10 1:20 1:50 1:100 1:200 1:500 1:1000 2:1 5:1 10:1 20:1 50:1 100:1'.split(' ');
 const S={tool:'line',color:COLS[0],width:.8,orient:'p',unit:'mm',ps:1,pr:1,snapPt:true,snapLn:true,snapAng:true,grid:false,gridStep:null,meas:true,betw:true,side:'top',dec:'auto',showScale:true,finger:false,step:'off',dash:false,track:false,stepLen:null,stepAng:5,autoHide:false,angColor:'#c026d3'};
-let shapes=[],hist=[],redo=[],draw=null,ui=true,cw=0,ch=0,dpr=1,fk=1,pen=0,penT=0,lastKey='',hits=[],dp=null,eraser=null,erP=0,selId=0,numEl=null,fresh=1,hd=null;
+let shapes=[],hist=[],redo=[],pages=[{}],cur=0,draw=null,ui=true,cw=0,ch=0,dpr=1,fk=1,pen=0,penT=0,lastKey='',hits=[],dp=null,eraser=null,erP=0,selId=0,numEl=null,fresh=1,hd=null,sc=null;
 const v={k:3,ox:0,oy:0},P=new Map();
-try{const d=JSON.parse(localStorage.getItem('linesim'));if(d){shapes=d.shapes||[];Object.assign(S,d.S)}}catch(e){}
+const PG=['ps','pr','unit','orient']; // settings that belong to a page (scale, unit, orientation)
+try{const d=JSON.parse(localStorage.getItem('linesim'));if(d){Object.assign(S,d.S);
+ if(d.pages&&d.pages.length){pages=d.pages.map(p=>({hist:[],redo:[],...p}));cur=Math.min(d.cur||0,pages.length-1);const p=pages[cur];shapes=p.shapes;hist=p.hist;redo=p.redo;PG.forEach(k=>S[k]=p[k])}
+ else{shapes=d.shapes||[];pages=[{}];stash()}}}catch(e){}
 S.step=S.step===true?'both':S.step||'off';
-const save=()=>{try{localStorage.setItem('linesim',JSON.stringify({shapes,S}))}catch(e){}};
+const save=()=>{try{stash();localStorage.setItem('linesim',JSON.stringify({pages:pages.map(({shapes,ps,pr,unit,orient})=>({shapes,ps,pr,unit,orient})),cur,S}))}catch(e){}};
 const PW=()=>S.orient==='p'?210:297,PH=()=>S.orient==='p'?297:210;
 const X=x=>v.ox+x*v.k,Y=y=>v.oy+y*v.k,RR=()=>S.pr/S.ps,uid=()=>shapes.reduce((m,s)=>Math.max(m,s.id),0)+1;
 const D=Math.PI/180,wrap=a=>((a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
@@ -178,6 +181,8 @@ function render(){
   ctx.font=`600 ${z}px system-ui,sans-serif`;ctx.textAlign='right';ctx.textBaseline='top';ctx.fillStyle='#1c2733';ctx.fillText(t,X(w)-v.k*4,Y(0)+v.k*4);
   for(const s of all)if(s.type==='line')labels(s)}
  if(draw&&draw.b.ring){ctx.strokeStyle='#e8590c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(draw.b.x),Y(draw.b.y),9,0,7);ctx.stroke()}
+ sc=null;if(ui){const t=(pages.length>1?'P'+(cur+1)+' · ':'')+S.ps+':'+S.pr+' ▾';ctx.font='600 12px system-ui,sans-serif';ctx.textAlign='left';ctx.textBaseline='middle';
+  const w=ctx.measureText(t).width+16,x=X(0)+8,y=Y(0)+8;ctx.fillStyle='#1c2733d9';ctx.beginPath();ctx.roundRect(x,y,w,24,8);ctx.fill();ctx.fillStyle='#fff';ctx.fillText(t,x+8,y+12);sc={x,y,w,h:24}}
  const hh=handle();if(hh){const L=hh.L,a=Math.atan2(Y(L.y2)-Y(L.y1),X(L.x2)-X(L.x1));
   ctx.save();ctx.translate(hh.x,hh.y);ctx.rotate(a);ctx.fillStyle='#e8590c';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(-3,-4);ctx.lineTo(-3,4);ctx.closePath();ctx.moveTo(7,0);ctx.lineTo(3,-4);ctx.lineTo(3,4);ctx.closePath();ctx.fill();ctx.restore()}
@@ -212,7 +217,8 @@ function dragHandle(sx,sy){const L=shapes.find(o=>o.id===hd.id);if(!L)return;
  let n=((sx-v.ox)/v.k-L.x1)*hd.ux+((sy-v.oy)/v.k-L.y1)*hd.uy; // distance along the line's own direction
  if(S.step==='len'||S.step==='both'){const ls=lstep();n=Math.round(n/ls)*ls}
  if(editLine(L.id,{len:Math.max(n,.5),ang:ang(L.x2-L.x1,L.y2-L.y1).val},1))render()} // angle locked; same solver: parents stay, children follow; ignored if it would break something
-function tapAt(x,y){let b=null,bd=14;
+function tapAt(x,y){if(sc&&x>=sc.x&&x<=sc.x+sc.w&&y>=sc.y&&y<=sc.y+sc.h){closePops();$('#pScale').hidden=false;return} // top-left scale chip
+ let b=null,bd=14;
  for(const h of hits){const c=Math.cos(h.r||0),n=Math.sin(h.r||0),px=x-h.x,py=y-h.y,d=hyp(Math.max(Math.abs(px*c+py*n)-h.w/2,0),-px*n+py*c);if(d<bd){bd=d;b=h}}
  if(b){pushH();b.o[b.k]=b.o[b.k]===false;return} // hide <-> show, kept until tapped again
  const mx=(x-v.ox)/v.k,my=(y-v.oy)/v.k;let q=null,qd=12/v.k;
@@ -313,8 +319,16 @@ async function deliver(o){
 $('#bSnip').onclick=()=>snapMode(true);$('#sCancel').onclick=()=>snapMode(false);
 $('#sPage').onclick=()=>capture(X(0),Y(0),PW()*v.k,PH()*v.k);
 addEventListener('keydown',e=>{if(e.key==='Escape')snapMode(false)});
+// ---------- pages: each has its own shapes, undo history, scale, unit and orientation ----------
+function stash(){const p=pages[cur];p.shapes=shapes;p.hist=hist;p.redo=redo;PG.forEach(k=>p[k]=S[k])}
+function load(n){cur=n;const p=pages[n];shapes=p.shapes;hist=p.hist;redo=p.redo;PG.forEach(k=>S[k]=p[k]);selId=0;numEl=null;hd=draw=null;sync();fit();save();render()}
+const goto=n=>{if(n<0||n>=pages.length||n===cur)return;stash();load(n)};
+$('#bPrev').onclick=()=>goto(cur-1);$('#bNext').onclick=()=>goto(cur+1);
+$('#bAdd').onclick=()=>{stash();pages.splice(cur+1,0,{shapes:[],hist:[],redo:[],ps:S.ps,pr:S.pr,unit:S.unit,orient:S.orient});load(cur+1);toast('Page '+(cur+1)+' added. Tap the corner chip to set its scale.')};
+$('#bDelPg').onclick=()=>{if(pages.length<2)return toast('This is the only page');if(!confirm('Delete page '+(cur+1)+'?'))return;pages.splice(cur,1);load(Math.min(cur,pages.length-1))};
 // ---------- side panels: edit the selected line's length / angle with the on-screen keypad (no system keyboard) ----------
 function panel(){const L=shapes.find(o=>o.id===selId&&o.type==='line');
+ $('#pgN').textContent=(cur+1)+'/'+pages.length;
  $('#pTitle').textContent=L?'Selected line':'Tap a line to edit';
  $('#pInfo').textContent=L?'Parent: '+(parOf(L)?'yes, fixed':'none')+' · Children: '+shapes.filter(o=>o.type==='line'&&parOf(o)===L.id).length:'';$('#uLen').textContent=S.unit;
  if(numEl!==fLen)fLen.value=L?fmt(hyp(L.x2-L.x1,L.y2-L.y1)):'';

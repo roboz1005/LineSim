@@ -11,7 +11,7 @@ Draw lines, center-rectangles and circles on an A4 page. Lines show length and a
 ## Quick use
 
 - Pen or mouse draws; one finger pans, two fingers pinch-zoom (turn on **Draw with finger** under ⚙ if needed).
-- **Scale & unit** sets the scale (paper : real) and the unit shown in every label and in the page's top-right note.
+- **Scale & unit** sets the scale (paper : real) and the unit shown in every label and in the page's top-right note. **Pages**: use ◀ ▶ ＋ 🗑 in the toolbar. Every page has its own drawing, undo history, scale, unit and orientation (a new page starts with the current page's settings). Tap the chip in a page's top-left corner to change that page's scale; the chip is not part of Snip or Hide UI screenshots.
 - **Angle number** = the wedge the arc shows, between the dashed horizontal at the line's start and the line (0–90°).
 - **Step mode** (Snap menu): choose **Length**, **Angle** or **Both**. The line's end moves in whole steps of the length step (in your unit) and/or the angle step at the start point. Snapping onto existing points still wins, so you can join lines.
 - **Track lines** (Snap menu): dotted guides run horizontally/vertically through every point and along existing lines; the cursor snaps onto them. Snapping to a track line turns step mode off for that move.
