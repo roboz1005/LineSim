@@ -4,7 +4,7 @@ Draw lines, center-rectangles and circles on an A4 page. Lines show length and a
 
 ## How to use
 
-1. Open `https://roboz1005.github.io/LineSim/` in Chrome on the tablet.
+1. Open https://roboz1005.github.io/LineSim/ in Chrome on the tablet.
 2. Chrome menu → **Install app** (or use the Install button under ⚙).
 
 ## Quick use
