@@ -15,10 +15,10 @@
  <div class="g" id="cols"><input type="color" id="cc" title="Custom color"></div>
  <div class="g"><button data-w=".4">0.4</button><button data-w=".8">0.8</button><button data-w="1.6">1.6</button></div>
  <div class="g"><button data-d="0" title="Continuous">━━</button><button data-d="1" title="Dashed">╍╍</button></div>
- <div class="g"><button data-p="pScale">Scale &amp; unit ▾</button><button data-p="pSnap">Snap ▾</button><button data-p="pMeas">Measure ▾</button></div>
- <div class="g"><button id="bPrev" title="Previous page">◀</button><span id="pgN">1/1</span><button id="bNext" title="Next page">▶</button><button id="bAdd" title="Add page">＋</button><button id="bDelPg" title="Delete page">🗑</button></div>
- <div class="g"><button id="bUndo" title="Undo">↶</button><button id="bRedo" title="Redo">↷</button><button id="bClear">Clear</button></div>
- <div class="g"><button id="bFit">Fit page</button><button id="bHide">Hide UI</button><button id="bSnip">Snip</button><button data-p="pSet" title="Settings">⚙</button></div>
+ <div class="g"><button data-p="pSnap">Snap ▾</button><button data-p="pMeas">Measure ▾</button></div>
+ <div class="g"><button id="bPrev" title="Previous page">◀</button><span id="pgN">1/1</span><button id="bNext" title="Next page">▶</button></div>
+ <div class="g"><button id="bUndo" title="Undo">↶</button><button id="bRedo" title="Redo">↷</button></div>
+ <div class="g"><button id="bSnip">Snip</button><button data-p="pSet" title="Settings">⚙</button></div>
 </div>
 
 <div class="pop" id="pScale" hidden>
@@ -47,6 +47,9 @@
  <label>Decimals <select data-k="dec"><option value="auto">Auto</option><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
 </div>
 <div class="pop" id="pSet" hidden>
+ <div class="btns"><button data-p="pScale">Scale &amp; unit…</button><button id="bFit" data-x>Fit page</button></div>
+ <div class="btns"><button id="bAdd" data-x>Add page</button><button id="bDelPg" data-x>Delete page</button></div>
+ <div class="btns"><button id="bClear" data-x>Clear page</button><button id="bHide">Hide UI</button></div>
  <label>Page <select data-k="orient"><option value="p">Portrait</option><option value="l">Landscape</option></select></label>
  <label>Draw with finger <input type="checkbox" data-k="finger"></label>
  <button id="bInst" hidden>Install LineSim</button>

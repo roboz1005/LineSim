@@ -39,3 +39,5 @@ button.on{background:#e8590c}
 #panR .ok{background:#e8590c}
 .noui #panL,.noui #panR,.snapping #panL,.snapping #panR{display:none!important}
 #pgN{min-width:40px;text-align:center;font-weight:600}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btns button{flex:1 1 40%}

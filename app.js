@@ -3,7 +3,7 @@
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)],hyp=Math.hypot;
 const cv=$('#c'),ctx=cv.getContext('2d'),bar=$('#bar'),chip=$('#chip'),panL=$('#panL'),panR=$('#panR'),fLen=$('#fLen'),fAng=$('#fAng');
 const MPU={nm:1e-6,'µm':1e-3,mm:1,cm:10,m:1e3,km:1e6,in:25.4,ft:304.8,yd:914.4,mi:1609344};
-const COLS=['#111111','#dc2626','#2563eb','#16a34a','#ea580c','#9333ea','#0d9488','#78350f'];
+const COLS=['#111111','#dc2626','#2563eb'];
 const PRE='1:1 1:2 1:5 1:10 1:20 1:50 1:100 1:200 1:500 1:1000 2:1 5:1 10:1 20:1 50:1 100:1'.split(' ');
 const S={tool:'line',color:COLS[0],width:.8,orient:'p',unit:'mm',ps:1,pr:1,snapPt:true,snapLn:true,snapAng:true,grid:false,gridStep:null,meas:true,betw:true,side:'top',dec:'auto',showScale:true,finger:false,step:'off',dash:false,track:false,stepLen:null,stepAng:5,autoHide:false,angColor:'#c026d3'};
 let shapes=[],hist=[],redo=[],pages=[{}],cur=0,draw=null,ui=true,cw=0,ch=0,dpr=1,fk=1,pen=0,penT=0,lastKey='',hits=[],dp=null,eraser=null,erP=0,selId=0,numEl=null,fresh=1,hd=null,sc=null;
@@ -13,22 +13,23 @@ try{const d=JSON.parse(localStorage.getItem('linesim'));if(d){Object.assign(S,d.
  if(d.pages&&d.pages.length){pages=d.pages.map(p=>({hist:[],redo:[],...p}));cur=Math.min(d.cur||0,pages.length-1);const p=pages[cur];shapes=p.shapes;hist=p.hist;redo=p.redo;PG.forEach(k=>S[k]=p[k])}
  else{shapes=d.shapes||[];pages=[{}];stash()}}}catch(e){}
 S.step=S.step===true?'both':S.step||'off';
+pages.forEach(p=>(p.shapes||[]).forEach(s=>{if(s.type==='line'&&!s.ps){s.ps=p.ps||1;s.pr=p.pr||1}})); // older drawings: freeze the scale they were labelled with
 const save=()=>{try{stash();localStorage.setItem('linesim',JSON.stringify({pages:pages.map(({shapes,ps,pr,unit,orient})=>({shapes,ps,pr,unit,orient})),cur,S}))}catch(e){}};
 const PW=()=>S.orient==='p'?210:297,PH=()=>S.orient==='p'?297:210;
 const X=x=>v.ox+x*v.k,Y=y=>v.oy+y*v.k,RR=()=>S.pr/S.ps,uid=()=>shapes.reduce((m,s)=>Math.max(m,s.id),0)+1;
 const D=Math.PI/180,wrap=a=>((a+Math.PI)%(2*Math.PI)+2*Math.PI)%(2*Math.PI)-Math.PI;
 
 // ---------- labels: scale, unit, number format ----------
-function fmt(mm){const u=MPU[S.unit],val=mm*RR()/u;
- if(S.dec==='auto'){const d=Math.min(3,Math.max(0,Math.ceil(-Math.log10(.1*RR()/u)-1e-9)));return String(+val.toFixed(d))}
+function fmt(mm,o){const r=o&&o.ps?o.pr/o.ps:RR(),u=MPU[S.unit],val=mm*r/u; // a line keeps the scale it was drawn with
+ if(S.dec==='auto'){const d=Math.min(3,Math.max(0,Math.ceil(-Math.log10(.1*r/u)-1e-9)));return String(+val.toFixed(d))}
  return val.toFixed(+S.dec)}
 // The angle number is the wedge the arc shows: between the dashed horizontal at the line's start
 // (pointing the same way the line travels sideways) and the line itself, so it is always 0–90°.
 function ang(dx,dy){const ref=dx>=0?0:Math.PI,sw=wrap(Math.atan2(dy,dx)-ref);return{flip:0,ref,sw,val:Math.abs(sw)/D}}
 const angTxt=(dx,dy)=>ang(dx,dy).val.toFixed(1)+'°';
 const nice=x=>{const e=10**Math.floor(Math.log10(x)),m=x/e;return e*[1,2,5,10].reduce((a,b)=>Math.abs(Math.log(b/m))<Math.abs(Math.log(a/m))?b:a)};
-const stepMM=u=>(u>0?u:nice(5*RR()/MPU[S.unit]))*MPU[S.unit]/RR(); // a step typed in the unit, as paper mm
-const gstep=()=>stepMM(S.gridStep),lstep=()=>stepMM(S.stepLen);
+const stepMM=(u,r=RR())=>(u>0?u:nice(5*r/MPU[S.unit]))*MPU[S.unit]/r; // a step typed in the unit, as paper mm
+const gstep=()=>stepMM(S.gridStep),lstep=o=>stepMM(S.stepLen,o&&o.ps?o.pr/o.ps:RR());
 
 // ---------- geometry + snapping ----------
 function seg(px,py,s){const dx=s.x2-s.x1,dy=s.y2-s.y1,L=dx*dx+dy*dy;let t=L?((px-s.x1)*dx+(py-s.y1)*dy)/L:0;t=Math.max(0,Math.min(1,t));
@@ -55,6 +56,10 @@ function snapAt(sx,sy,an){const m={x:(sx-v.ox)/v.k,y:(sy-v.oy)/v.k},R=12/v.k;let
  if(S.grid){const g=gstep();return{x:Math.round(m.x/g)*g,y:Math.round(m.y/g)*g}}
  return m}
 function trackAt(m,an,thr){
+ const sl=an&&shapes.find(o=>o.id===selId&&o.type==='line'); // parallel + perpendicular to the selected line
+ if(sl){const dx=sl.x2-sl.x1,dy=sl.y2-sl.y1,L=hyp(dx,dy),ux=dx/L,uy=dy/L,vx=m.x-an.x,vy=m.y-an.y;
+  for(const[tx,ty]of[[ux,uy],[-uy,ux]])if(Math.abs(vx*ty-vy*tx)<thr){const t=vx*tx+vy*ty;
+   return{x:an.x+t*tx,y:an.y+t*ty,tr:[{p:[an.x,an.y],d:[tx,ty]}],k:'p'+tx.toFixed(3)+'/'+ty.toFixed(3)}}}
  const refs=pts();if(an)refs.push([an.x,an.y]);let bx=null,by=null,bdx=thr,bdy=thr;
  for(const p of refs){const dx=Math.abs(m.x-p[0]),dy=Math.abs(m.y-p[1]);if(dx<bdx){bdx=dx;bx=p}if(dy<bdy){bdy=dy;by=p}}
  if(bx||by){const x=bx?bx[0]:m.x,y=by?by[1]:m.y,tr=[];if(bx)tr.push({p:bx,d:[0,1]});if(by)tr.push({p:by,d:[1,0]});return{x,y,tr,k:'t'+x.toFixed(2)+'/'+y.toFixed(2)}}
@@ -81,7 +86,7 @@ function mk(d){const{a,b,tool}=d;let s;
  else if(tool==='rect'){s={type:'rect',cx:a.x,cy:a.y,hw:Math.abs(b.x-a.x),hh:Math.abs(b.y-a.y)};if(s.hw<.25&&s.hh<.25)return null}
  else{s={type:'circle',cx:a.x,cy:a.y,r:hyp(b.x-a.x,b.y-a.y)};if(s.r<.5)return null}
  Object.assign(s,{id:0,color:S.color,width:S.width,d:S.dash?1:0});
- if(s.type==='line'){s.joins=calcJoins(s);if(S.autoHide){s.sl=s.sa=false;s.joins.forEach(j=>j.show=false)}}
+ if(s.type==='line'){s.joins=calcJoins(s);s.ps=S.ps;s.pr=S.pr;if(S.autoHide){s.sl=s.sa=false;s.joins.forEach(j=>j.show=false)}}
  return s}
 const live=d=>{const s=d&&mk(d);if(s&&s.type==='line'){s.sl=s.sa=true;s.joins.forEach(j=>j.show=true)}return s}; // while drawing, labels are always visible
 
@@ -103,7 +108,7 @@ function editLine(id,ch,quiet){
  const fz=new Set();for(let p=parOf(shapes.find(s=>s.id===id));p&&!fz.has(p);){fz.add(p);const q=shapes.find(s=>s.id===p);p=q?parOf(q):0}
  let tA=0;if(ch.ang!=null){const A=ang(x0[xi(ie,'b')]-x0[xi(ie,'a')],x0[xi(ie,'b')+1]-x0[xi(ie,'a')+1]);tA=A.ref+(A.sw<0?-1:1)*ch.ang*D}
  Ls.forEach((s,i)=>{
-  for(const j of s.joins||[]){const k=ix.get(j.otherId);if(k==null)continue;const o=Ls[k],a=j.end,p=a==='a'?[s.x1,s.y1]:[s.x2,s.y2],
+  for(const j of s.joins||[]){const k=ix.get(j.otherId);if(k==null||(ch.free&&i===ie&&j.end==='b'))continue;const o=Ls[k],a=j.end,p=a==='a'?[s.x1,s.y1]:[s.x2,s.y2],
    e=hyp(p[0]-o.x1,p[1]-o.y1)<.05?'a':hyp(p[0]-o.x2,p[1]-o.y2)<.05?'b':0;
    if(e){add(H,x=>x[xi(i,a)]-x[xi(k,e)]);add(H,x=>x[xi(i,a)+1]-x[xi(k,e)+1])} // coincident ends
    else{add(H,x=>{const A=xi(k,'a'),B=xi(k,'b'),dx=x[B]-x[A],dy=x[B+1]-x[A+1];return((x[xi(i,a)]-x[A])*dy-(x[xi(i,a)+1]-x[A+1])*dx)/(hyp(dx,dy)||1)}); // end on a line
@@ -114,8 +119,8 @@ function editLine(id,ch,quiet){
   if(Math.abs(s.y2-s.y1)<1e-6&&!own)add(H,x=>x[xi(i,'b')+1]-x[xi(i,'a')+1]);
   else if(Math.abs(s.x2-s.x1)<1e-6&&!own)add(H,x=>x[xi(i,'b')]-x[xi(i,'a')]);
   const L0=len(x0,i),t0=dir(x0,i),e=i===ie;
-  add(e&&ch.len!=null?H:e?.1:s.sl!==false?100:.3,x=>len(x,i)-(e&&ch.len!=null?ch.len:L0));
-  add(e&&ch.ang!=null?H:e?.1:s.sa!==false?100:.3,x=>L0*wrap(dir(x,i)-(e&&ch.ang!=null?tA:t0)))});
+  add(e&&ch.len!=null?H:e?.1:s.sl!==false&&!ch.relax?100:.3,x=>len(x,i)-(e&&ch.len!=null?ch.len:L0));
+  add(e&&ch.ang!=null?H:e?.1:s.sa!==false&&!ch.relax?100:.3,x=>L0*wrap(dir(x,i)-(e&&ch.ang!=null?tA:t0)))});
  add(H,x=>x[xi(ie,'a')]-x0[xi(ie,'a')]);add(H,x=>x[xi(ie,'a')+1]-x0[xi(ie,'a')+1]);
  for(let q=0;q<n;q++)add(.02,x=>x[q]-x0[q]);
  const m=sp.length,res=x=>sp.map(c=>c.w*c.f(x));let lam=1e-3,r=res(x),f=r.reduce((a,b)=>a+b*b,0);
@@ -142,7 +147,7 @@ function labels(s){
  let nx=dy/L,ny=-dx/L;if(ny>1e-9||(Math.abs(ny)<1e-9&&nx<0)){nx=-nx;ny=-ny}
  if(S.side==='bottom'){nx=-nx;ny=-ny}
  let rot=Math.atan2(dy,dx);if(rot>Math.PI/2+1e-9)rot-=Math.PI;else if(rot<-Math.PI/2+1e-9)rot+=Math.PI; // keep the text upright
- lab(fmt(L/v.k),ax+dx/2,ay+dy/2,s.color,s,'sl',nx,ny,rot);
+ lab(fmt(L/v.k,s),ax+dx/2,ay+dy/2,s.color,s,'sl',nx,ny,rot);
  // angle with the horizontal: dashed reference + arc at the start point, in the fixed angle colour
  const A=ang(dx,dy),sx=A.ref?-1:1,r=Math.max(8,Math.min(34,L*.35)),sw=A.sw,ac=S.angColor;
  if(s.sa!==false){ctx.save();ctx.strokeStyle=ac;ctx.lineWidth=1.2;ctx.setLineDash([5,4]);
@@ -186,11 +191,12 @@ function render(){
  const hh=handle();if(hh){const L=hh.L,a=Math.atan2(Y(L.y2)-Y(L.y1),X(L.x2)-X(L.x1));
   ctx.save();ctx.translate(hh.x,hh.y);ctx.rotate(a);ctx.fillStyle='#e8590c';ctx.strokeStyle='#fff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,11,0,7);ctx.fill();ctx.stroke();
   ctx.fillStyle='#fff';ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(-3,-4);ctx.lineTo(-3,4);ctx.closePath();ctx.moveTo(7,0);ctx.lineTo(3,-4);ctx.lineTo(3,4);ctx.closePath();ctx.fill();ctx.restore()}
+ if(hd&&hd.ring){ctx.strokeStyle='#e8590c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(X(hd.ring[0]),Y(hd.ring[1]),9,0,7);ctx.stroke()}
  if(draw&&draw.b.tr&&ui){ctx.save();ctx.strokeStyle='#e8590c';ctx.globalAlpha=.7;ctx.lineWidth=1;ctx.setLineDash([2,4]);ctx.beginPath();
   for(const t of draw.b.tr){ctx.moveTo(X(t.p[0]-t.d[0]*4e3),Y(t.p[1]-t.d[1]*4e3));ctx.lineTo(X(t.p[0]+t.d[0]*4e3),Y(t.p[1]+t.d[1]*4e3))}ctx.stroke();ctx.restore()}
  if(eraser){ctx.strokeStyle='#e8590c';ctx.lineWidth=2;ctx.beginPath();ctx.arc(eraser.x,eraser.y,12,0,7);ctx.stroke()}
  const cl=pv&&pv.type==='line'?pv:hd?shapes.find(o=>o.id===hd.id):null,ln=cl&&S.meas;chip.hidden=!ln;
- if(ln)chip.textContent=fmt(hyp(cl.x2-cl.x1,cl.y2-cl.y1))+'   ∠ '+angTxt(cl.x2-cl.x1,cl.y2-cl.y1)}
+ if(ln)chip.textContent=fmt(hyp(cl.x2-cl.x1,cl.y2-cl.y1),cl)+'   ∠ '+angTxt(cl.x2-cl.x1,cl.y2-cl.y1)}
 
 // ---------- view ----------
 function fit(){const t=ui?bar.offsetHeight:0,l=ui?panL.offsetWidth:0,r=ui?panR.offsetWidth:0,w=PW(),h=PH();
@@ -214,9 +220,20 @@ function eraseAt(sx,sy){eraser={x:sx,y:sy};const x=(sx-v.ox)/v.k,y=(sy-v.oy)/v.k
  render()}
 const handle=()=>{const L=ui&&shapes.find(o=>o.id===selId&&o.type==='line');return L?{x:X(L.x2),y:Y(L.y2),L}:null}; // end-of-line handle
 function dragHandle(sx,sy){const L=shapes.find(o=>o.id===hd.id);if(!L)return;
- let n=((sx-v.ox)/v.k-L.x1)*hd.ux+((sy-v.oy)/v.k-L.y1)*hd.uy; // distance along the line's own direction
- if(S.step==='len'||S.step==='both'){const ls=lstep();n=Math.round(n/ls)*ls}
- if(editLine(L.id,{len:Math.max(n,.5),ang:ang(L.x2-L.x1,L.y2-L.y1).val},1))render()} // angle locked; same solver: parents stay, children follow; ignored if it would break something
+ let n=((sx-v.ox)/v.k-L.x1)*hd.ux+((sy-v.oy)/v.k-L.y1)*hd.uy,snap=0; // distance along the line's own direction
+ if(S.snapLn){const w=PW(),h=PH();let bd=12/v.k;
+  for(const o of[...shapes.filter(q=>q.type==='line'&&q.id!==L.id),{x1:0,y1:0,x2:w,y2:0},{x1:w,y1:0,x2:w,y2:h},{x1:w,y1:h,x2:0,y2:h},{x1:0,y1:h,x2:0,y2:0}]){
+   const sx2=o.x2-o.x1,sy2=o.y2-o.y1,den=hd.ux*sy2-hd.uy*sx2;if(Math.abs(den)<1e-9)continue;
+   const ax=o.x1-L.x1,ay=o.y1-L.y1,t=(ax*sy2-ay*sx2)/den,u=(ax*hd.uy-ay*hd.ux)/den; // where the ray meets that line
+   if(u>=-1e-9&&u<=1+1e-9&&t>.5&&Math.abs(t-n)<bd){bd=Math.abs(t-n);snap=t}}
+  if(snap)n=snap}
+ if(!snap&&(S.step==='len'||S.step==='both')){const ls=lstep(L);n=Math.round(n/ls)*ls}
+ if(editLine(L.id,{len:Math.max(n,.5),ang:ang(L.x2-L.x1,L.y2-L.y1).val,free:1},1)){ // angle locked; its end joins are released while dragging
+  hd.ring=snap?[L.x2,L.y2]:null;hap(snap?{ring:1,x:L.x2,y:L.y2}:{});render()}} // same solver: parents stay, children follow, other lines untouched; ignored if it would break something
+function rejoin(L){const e=o=>o&&seg(L.x2,L.y2,o).d<.05; // after a drag: keep the snaps the end now has, drop the ones it left
+ L.joins=(L.joins||[]).filter(j=>j.end!=='b'||e(shapes.find(q=>q.id===j.otherId)));
+ for(const o of shapes)if(o.type==='line'&&o.id!==L.id&&seg(L.x2,L.y2,o).d<.02&&!L.joins.some(j=>j.end==='b'&&j.otherId===o.id))L.joins.push({end:'b',otherId:o.id,show:!S.autoHide})}
+
 function tapAt(x,y){if(sc&&x>=sc.x&&x<=sc.x+sc.w&&y>=sc.y&&y<=sc.y+sc.h){closePops();$('#pScale').hidden=false;return} // top-left scale chip
  let b=null,bd=14;
  for(const h of hits){const c=Math.cos(h.r||0),n=Math.sin(h.r||0),px=x-h.x,py=y-h.y,d=hyp(Math.max(Math.abs(px*c+py*n)-h.w/2,0),-px*n+py*c);if(d<bd){bd=d;b=h}}
@@ -232,7 +249,7 @@ cv.addEventListener('pointerdown',e=>{
  const p={x:e.clientX,y:e.clientY,sx:e.clientX,sy:e.clientY,t,role:'pan',multi:0};P.set(e.pointerId,p);
  const ts=[...P.values()].filter(q=>q.t);
  const hh=S.tool!=='erase'&&!(t&&ts.length>1)&&handle();
- if(hh&&hyp(e.clientX-hh.x,e.clientY-hh.y)<20){p.role='handle';pushH();const L=hh.L,dx=L.x2-L.x1,dy=L.y2-L.y1,n=hyp(dx,dy);hd={id:L.id,ux:dx/n,uy:dy/n};render()}
+ if(hh&&hyp(e.clientX-hh.x,e.clientY-hh.y)<20){p.role='handle';pushH();const L=hh.L,dx=L.x2-L.x1,dy=L.y2-L.y1,n=hyp(dx,dy);hd={id:L.id,ux:dx/n,uy:dy/n,ring:null};lastKey='';render()}
  else if(t&&ts.length>1){draw=eraser=hd=null;ts.forEach(q=>{q.role='pan';q.multi=1})}
  else if(!t||S.finger){p.role='draw';lastKey='';
   if(S.tool==='erase'){erP=0;eraseAt(e.clientX,e.clientY)}
@@ -251,7 +268,7 @@ cv.addEventListener('pointermove',e=>{
 function end(e){const p=P.get(e.pointerId);if(!p)return;P.delete(e.pointerId);
  if(e.pointerType==='pen'){pen=0;penT=performance.now()}
  if(p.role==='draw'&&S.tool==='erase'){eraser=null;save();render();return}
- if(p.role==='handle'){hd=null;if(hist[hist.length-1]===JSON.stringify(shapes))hist.pop();save();render();return} // no change: drop the undo step
+ if(p.role==='handle'){const hl=hd&&shapes.find(o=>o.id===hd.id);hd=null;if(hl)rejoin(hl);if(hist[hist.length-1]===JSON.stringify(shapes))hist.pop();save();render();return} // no change: drop the undo step
  const d=draw,up=e.type==='pointerup';if(p.role==='draw')draw=null;
  if(up&&!p.multi&&hyp(e.clientX-p.sx,e.clientY-p.sy)<5){render();tapAt(e.clientX,e.clientY)} // a tap never makes a shape
  else if(up&&d&&p.role==='draw'){const s=mk(d);if(s){pushH();s.id=uid();shapes.push(s)}}
@@ -273,11 +290,12 @@ Object.keys(MPU).forEach(u=>$('#unit').add(new Option(u,u)));
 bar.onclick=e=>{const b=e.target.closest('button'),d=b&&b.dataset;if(!d)return;
  if(d.t)S.tool=d.t;if(d.c)S.color=d.c;if(d.w)S.width=+d.w;if(d.d!=null)S.dash=d.d==='1';sync();save()};
 $('#cc').oninput=e=>{S.color=e.target.value;sync();save()};
-$('#pre').onchange=e=>{if(!e.target.value)return;[S.ps,S.pr]=e.target.value.split(':').map(Number);sync();save();render()};
+$('#pre').onchange=e=>{if(!e.target.value)return;const[a,b]=e.target.value.split(':').map(Number);setScale(a,b);sync();save();render()};
 $$('[data-k]').forEach(el=>el.onchange=()=>{const k=el.dataset.k;
  let x=el.type==='checkbox'?el.checked:el.dataset.n!=null?parseFloat(el.value):el.value;
  if(el.dataset.n!=null&&!(x>0))x=['gridStep','stepLen'].includes(k)?null:S[k];
- S[k]=x;sync();if(k==='orient')fit();save();render()});
+ if(k==='ps'||k==='pr')setScale(k==='ps'?x:S.ps,k==='pr'?x:S.pr);else S[k]=x;
+ sync();if(k==='orient')fit();save();render()});
 $$('[data-p]').forEach(b=>b.onclick=()=>{const p=$('#'+b.dataset.p),open=p.hidden;closePops();p.hidden=!open});
 $('#bUndo').onclick=()=>{if(!hist.length)return;redo.push(JSON.stringify(shapes));shapes=JSON.parse(hist.pop());save();render()};
 $('#bRedo').onclick=()=>{if(!redo.length)return;hist.push(JSON.stringify(shapes));shapes=JSON.parse(redo.pop());save();render()};
@@ -320,26 +338,29 @@ $('#bSnip').onclick=()=>snapMode(true);$('#sCancel').onclick=()=>snapMode(false)
 $('#sPage').onclick=()=>capture(X(0),Y(0),PW()*v.k,PH()*v.k);
 addEventListener('keydown',e=>{if(e.key==='Escape')snapMode(false)});
 // ---------- pages: each has its own shapes, undo history, scale, unit and orientation ----------
-function stash(){const p=pages[cur];p.shapes=shapes;p.hist=hist;p.redo=redo;PG.forEach(k=>p[k]=S[k])}
-function load(n){cur=n;const p=pages[n];shapes=p.shapes;hist=p.hist;redo=p.redo;PG.forEach(k=>S[k]=p[k]);selId=0;numEl=null;hd=draw=null;sync();fit();save();render()}
+function setScale(a,b){if(a>0&&b>0){S.ps=a;S.pr=b}} // drawn lines keep their own scale; this one is for lines drawn from now on
+function stash(){const p=pages[cur];p.shapes=shapes;p.hist=hist;p.redo=redo;PG.forEach(k=>p[k]=S[k]);p.v={k:v.k,ox:v.ox,oy:v.oy}}
+function load(n){cur=n;const p=pages[n];shapes=p.shapes;hist=p.hist;redo=p.redo;PG.forEach(k=>S[k]=p[k]);selId=0;numEl=null;hd=draw=null;sync();fit();if(p.v)Object.assign(v,p.v);save();render()} // restore this page's own zoom/position
 const goto=n=>{if(n<0||n>=pages.length||n===cur)return;stash();load(n)};
+$('#pSet').addEventListener('click',e=>{if(e.target.closest('[data-x]'))closePops()});
 $('#bPrev').onclick=()=>goto(cur-1);$('#bNext').onclick=()=>goto(cur+1);
-$('#bAdd').onclick=()=>{stash();pages.splice(cur+1,0,{shapes:[],hist:[],redo:[],ps:S.ps,pr:S.pr,unit:S.unit,orient:S.orient});load(cur+1);toast('Page '+(cur+1)+' added. Tap the corner chip to set its scale.')};
+$('#bAdd').onclick=()=>{stash();pages.splice(cur+1,0,{shapes:[],hist:[],redo:[],ps:S.ps,pr:S.pr,unit:S.unit,orient:S.orient,v:{k:v.k,ox:v.ox,oy:v.oy}});load(cur+1);toast('Page '+(cur+1)+' added. Tap the corner chip to set its scale.')};
 $('#bDelPg').onclick=()=>{if(pages.length<2)return toast('This is the only page');if(!confirm('Delete page '+(cur+1)+'?'))return;pages.splice(cur,1);load(Math.min(cur,pages.length-1))};
 // ---------- side panels: edit the selected line's length / angle with the on-screen keypad (no system keyboard) ----------
 function panel(){const L=shapes.find(o=>o.id===selId&&o.type==='line');
  $('#pgN').textContent=(cur+1)+'/'+pages.length;
  $('#pTitle').textContent=L?'Selected line':'Tap a line to edit';
  $('#pInfo').textContent=L?'Parent: '+(parOf(L)?'yes, fixed':'none')+' · Children: '+shapes.filter(o=>o.type==='line'&&parOf(o)===L.id).length:'';$('#uLen').textContent=S.unit;
- if(numEl!==fLen)fLen.value=L?fmt(hyp(L.x2-L.x1,L.y2-L.y1)):'';
+ if(numEl!==fLen)fLen.value=L?fmt(hyp(L.x2-L.x1,L.y2-L.y1),L):'';
  if(numEl!==fAng)fAng.value=L?ang(L.x2-L.x1,L.y2-L.y1).val.toFixed(1):''}
 function setNum(el){numEl=el;fresh=1;$$('.fld').forEach(f=>f.classList.toggle('act',f===el))}
 document.addEventListener('click',e=>{const t=e.target.closest('[data-n],.fld');if(t)setNum(t)});
 document.addEventListener('focusin',e=>{if(e.target.matches('[data-n],.fld'))setNum(e.target)});
 function applyField(f){const L=shapes.find(o=>o.id===selId&&o.type==='line');if(!L)return toast('Tap a line first');
  const n=parseFloat(f==='len'?fLen.value:fAng.value);if(!(n>0)&&!(f==='ang'&&n===0))return toast('Type a value first');
- const ok=editLine(L.id,f==='len'?{len:n*MPU[S.unit]/RR()}:{ang:Math.min(90,n)});
- toast(ok?'Updated':'Cannot change: its parents stay fixed and a shown length/angle would have to break. Hide one to let it flex, or edit the parent.');save();render()}
+ const c=f==='len'?{len:n*MPU[S.unit]/(L.ps?L.pr/L.ps:RR())}:{ang:Math.min(90,n)};let ok=editLine(L.id,c),rel=0; // keeps every snap; related lines flex too if they must
+ if(!ok){ok=editLine(L.id,{...c,relax:1});rel=ok}
+ toast(ok?(rel?'Updated. The snapped lines changed too, to keep the snaps.':'Updated'):'Cannot change: its parents stay fixed and the snaps cannot be kept.');save();render()}
 function key(c){if(!numEl)return;
  if(c==='ok'){if(numEl.dataset.f)applyField(numEl.dataset.f);else numEl.dispatchEvent(new Event('change'));fresh=1;return}
  let t=fresh&&c!=='del'?'':numEl.value;fresh=0;
