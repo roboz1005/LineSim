@@ -1,7 +1,8 @@
 # LineSim
 
 Draw lines, center-rectangles and circles on an A4 page. Lines show length and angle live and keep their labels, so you can screenshot the page. Everything is stored in real page millimetres, so zoom and window size never change the numbers.
-<img width="734" height="486" alt="image" src="https://github.com/user-attachments/assets/33704ee6-e825-482d-a128-325d179e052b" />
+
+<img width="2304" height="1327" alt="AISelect_20261102_171616_Chrome" src="https://github.com/user-attachments/assets/f6630fd3-aa64-4340-b6d8-3294fa651366" />
 
 ## How to use
 
