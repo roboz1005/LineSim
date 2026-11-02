@@ -14,6 +14,7 @@
  <div class="g"><button data-t="line">Line</button><button data-t="rect">Rect</button><button data-t="circle">Circle</button><button data-t="erase">Erase</button></div>
  <div class="g" id="cols"><input type="color" id="cc" title="Custom color"></div>
  <div class="g"><button data-w=".4">0.4</button><button data-w=".8">0.8</button><button data-w="1.6">1.6</button></div>
+ <div class="g"><button data-d="0" title="Continuous">━━</button><button data-d="1" title="Dashed">╍╍</button></div>
  <div class="g"><button data-p="pScale">Scale &amp; unit ▾</button><button data-p="pSnap">Snap ▾</button><button data-p="pMeas">Measure ▾</button></div>
  <div class="g"><button id="bUndo" title="Undo">↶</button><button id="bRedo" title="Redo">↷</button><button id="bClear">Clear</button></div>
  <div class="g"><button id="bFit">Fit page</button><button id="bHide">Hide UI</button><button id="bSnip">Snip</button><button data-p="pSet" title="Settings">⚙</button></div>
@@ -21,18 +22,19 @@
 
 <div class="pop" id="pScale" hidden>
  <label>Preset (paper : real) <select id="pre"><option value="">Custom</option></select></label>
- <label>Custom scale <span><input type="number" data-k="ps" min="0" step="any"> : <input type="number" data-k="pr" min="0" step="any"></span></label>
+ <label>Custom scale <span><input type="text" inputmode="none" data-n data-k="ps"> : <input type="text" inputmode="none" data-n data-k="pr"></span></label>
  <label>Unit <select data-k="unit" id="unit"></select></label>
 </div>
 <div class="pop" id="pSnap" hidden>
  <label>Snap to points <input type="checkbox" data-k="snapPt"></label>
  <label>Snap onto lines <input type="checkbox" data-k="snapLn"></label>
  <label>Angle snap (15°) <input type="checkbox" data-k="snapAng"></label>
- <label>Step mode (length + angle) <input type="checkbox" data-k="step"></label>
- <label>Length step (in unit) <input type="number" data-k="stepLen" placeholder="auto" min="0" step="any"></label>
- <label>Angle step (°) <input type="number" data-k="stepAng" placeholder="5" min="0" step="any"></label>
+ <label>Step mode <select data-k="step"><option value="off">Off</option><option value="len">Length</option><option value="ang">Angle</option><option value="both">Both</option></select></label>
+ <label>Track lines <input type="checkbox" data-k="track"></label>
+ <label>Length step (in unit) <input type="text" inputmode="none" data-n data-k="stepLen" placeholder="auto"></label>
+ <label>Angle step (°) <input type="text" inputmode="none" data-n data-k="stepAng" placeholder="5"></label>
  <label>Grid <input type="checkbox" data-k="grid"></label>
- <label>Grid step (in unit) <input type="number" data-k="gridStep" placeholder="auto" min="0" step="any"></label>
+ <label>Grid step (in unit) <input type="text" inputmode="none" data-n data-k="gridStep" placeholder="auto"></label>
 </div>
 <div class="pop" id="pMeas" hidden>
  <label>Measurements <input type="checkbox" data-k="meas"></label>
@@ -48,6 +50,11 @@
  <label>Draw with finger <input type="checkbox" data-k="finger"></label>
  <button id="bInst" hidden>Install LineSim</button>
 </div>
+<aside id="panL"><b id="pTitle">Tap a line to edit</b><small id="pInfo"></small>
+ <label for="fLen">Length (<span id="uLen">mm</span>)</label><input id="fLen" class="fld" data-f="len" inputmode="none" readonly>
+ <label for="fAng">Angle (°)</label><input id="fAng" class="fld" data-f="ang" inputmode="none" readonly>
+ <small>Tap a line, tap a field, type (keypad or keyboard), press OK. Parents stay fixed; this line and its children follow. Shown values stay fixed; hide one to let it flex.</small></aside>
+<aside id="panR"><button data-key="0">0</button><button data-key="1">1</button><button data-key="2">2</button><button data-key="3">3</button><button data-key="4">4</button><button data-key="5">5</button><button data-key="6">6</button><button data-key="7">7</button><button data-key="8">8</button><button data-key="9">9</button><button data-key=".">.</button><button data-key="del">⌫</button><button data-key="ok" class="ok">OK</button></aside>
 <button id="bShow" aria-label="Show UI"></button>
 <div id="snap" hidden><div id="sel" hidden></div><div id="sbar"><span>Drag to select an area</span><button id="sPage">Page</button><button id="sCancel">Cancel</button></div></div>
 <div id="toast" hidden></div>

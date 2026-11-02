@@ -10,10 +10,10 @@ button.on{background:#e8590c}
 .sw{min-width:30px;width:30px;min-height:30px;padding:0;border-radius:50%;border:2px solid #ffffff40}
 .sw.on{border-color:#fff;box-shadow:0 0 0 2px #e8590c}
 #cc{width:34px;height:34px;padding:0;border:0;border-radius:8px;background:none}
-.pop{position:fixed;left:10px;top:calc(var(--bh,56px) + 6px);width:min(380px,calc(100% - 20px));max-height:calc(100% - var(--bh,56px) - 24px);overflow:auto;display:grid;gap:10px;padding:14px;border-radius:12px;background:#fff;color:#1c2733;box-shadow:0 8px 28px #0005}
+.pop{position:fixed;z-index:10;left:150px;top:calc(var(--bh,56px) + 6px);width:min(380px,calc(100% - 240px));max-height:calc(100% - var(--bh,56px) - 24px);overflow:auto;display:grid;gap:10px;padding:14px;border-radius:12px;background:#fff;color:#1c2733;box-shadow:0 8px 28px #0005}
 .pop label{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.pop select,.pop input[type=number]{min-height:36px;padding:0 6px}
-.pop input[type=number]{width:76px}
+.pop select,.pop input[data-n]{min-height:36px;padding:0 6px}
+.pop input[data-n]{width:76px}
 .pop input[type=checkbox]{width:22px;height:22px}
 .pop button{background:#e8590c}
 #chip{position:fixed;left:50%;top:calc(var(--bh,56px) + 10px);transform:translateX(-50%);padding:6px 14px;border-radius:20px;background:#1c2733e6;color:#fff;font:600 16px system-ui,sans-serif;pointer-events:none;white-space:pre}
@@ -28,3 +28,13 @@ button.on{background:#e8590c}
 #sbar{position:fixed;top:12px;left:50%;transform:translateX(-50%);z-index:21;display:flex;align-items:center;gap:10px;padding:8px 12px;border-radius:14px;background:#1c2733;color:#fff}
 #toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:30;padding:10px 16px;border-radius:20px;background:#1c2733;color:#fff;pointer-events:none}
 .snapping #bar,.snapping .pop,.snapping #chip,.snapping #bShow{display:none!important}
+
+#panL{position:fixed;left:0;top:var(--bh,56px);bottom:0;width:136px;z-index:5;display:flex;flex-direction:column;gap:6px;padding:10px;background:#1c2733;color:#fff}
+#panL label{font-size:12px;opacity:.8;margin-top:6px}
+#panL small{opacity:.6;line-height:1.35;margin-top:8px}
+.fld{width:100%;min-height:44px;padding:0 10px;border:2px solid transparent;border-radius:8px;background:#fff;color:#111;font-size:20px;text-align:right}
+.fld.act{border-color:#e8590c}
+#panR{position:fixed;right:0;top:var(--bh,56px);bottom:0;width:62px;z-index:5;display:flex;flex-direction:column;gap:4px;padding:6px;background:#1c2733}
+#panR button{flex:1;min-height:28px;min-width:0;padding:0;font-size:19px}
+#panR .ok{background:#e8590c}
+.noui #panL,.noui #panR,.snapping #panL,.snapping #panR{display:none!important}
