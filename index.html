@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>LineSim</title>
+<meta name="theme-color" content="#1c2733">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/icon-192.png">
+<link rel="stylesheet" href="./style.css"></head>
+<body>
+<canvas id="c"></canvas>
+<div id="chip" hidden></div>
+<div id="bar">
+ <div class="g"><button data-t="line">Line</button><button data-t="rect">Rect</button><button data-t="circle">Circle</button><button data-t="erase">Erase</button></div>
+ <div class="g" id="cols"><input type="color" id="cc" title="Custom color"></div>
+ <div class="g"><button data-w=".4">0.4</button><button data-w=".8">0.8</button><button data-w="1.6">1.6</button></div>
+ <div class="g"><button data-p="pScale">Scale &amp; unit ▾</button><button data-p="pSnap">Snap ▾</button><button data-p="pMeas">Measure ▾</button></div>
+ <div class="g"><button id="bUndo" title="Undo">↶</button><button id="bRedo" title="Redo">↷</button><button id="bClear">Clear</button></div>
+ <div class="g"><button id="bFit">Fit page</button><button id="bHide">Hide UI</button><button data-p="pSet" title="Settings">⚙</button></div>
+</div>
+
+<div class="pop" id="pScale" hidden>
+ <label>Preset (paper : real) <select id="pre"><option value="">Custom</option></select></label>
+ <label>Custom scale <span><input type="number" data-k="ps" min="0" step="any"> : <input type="number" data-k="pr" min="0" step="any"></span></label>
+ <label>Unit <select data-k="unit" id="unit"></select></label>
+</div>
+<div class="pop" id="pSnap" hidden>
+ <label>Snap to points <input type="checkbox" data-k="snapPt"></label>
+ <label>Snap onto lines <input type="checkbox" data-k="snapLn"></label>
+ <label>Angle snap (15°) <input type="checkbox" data-k="snapAng"></label>
+ <label>Step mode (length + angle) <input type="checkbox" data-k="step"></label>
+ <label>Length step (in unit) <input type="number" data-k="stepLen" placeholder="auto" min="0" step="any"></label>
+ <label>Angle step (°) <input type="number" data-k="stepAng" placeholder="5" min="0" step="any"></label>
+ <label>Grid <input type="checkbox" data-k="grid"></label>
+ <label>Grid step (in unit) <input type="number" data-k="gridStep" placeholder="auto" min="0" step="any"></label>
+</div>
+<div class="pop" id="pMeas" hidden>
+ <label>Measurements <input type="checkbox" data-k="meas"></label>
+ <label>Between-line angles <input type="checkbox" data-k="betw"></label>
+ <label>Show scale in note <input type="checkbox" data-k="showScale"></label>
+ <label>Length label side <select data-k="side"><option value="top">Top</option><option value="bottom">Bottom</option></select></label>
+ <label>Decimals <select data-k="dec"><option value="auto">Auto</option><option>0</option><option>1</option><option>2</option><option>3</option></select></label>
+</div>
+<div class="pop" id="pSet" hidden>
+ <label>Page <select data-k="orient"><option value="p">Portrait</option><option value="l">Landscape</option></select></label>
+ <label>Draw with finger <input type="checkbox" data-k="finger"></label>
+ <button id="bInst" hidden>Install LineSim</button>
+</div>
+<button id="bShow" aria-label="Show UI"></button>
+<script src="./app.js"></script>
+</body></html>
